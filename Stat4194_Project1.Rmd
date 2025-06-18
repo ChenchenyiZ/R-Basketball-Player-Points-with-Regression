@@ -1,0 +1,272 @@
+---
+title: "Stat 4194 Project 1"
+subtite: "Explaining an Outcome with Regression"
+author: "Chenchenyi Zhu.3085"
+date: "2025-02-05"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+library(readr)
+library(MASS)
+library(AER)
+library(ggplot2)
+library(DescTools)
+```
+
+# Data Selection
+
+Name: Basketball Players Stats per Season - 49 Leagues
+
+
+Sources: https://www.kaggle.com/, https://basketball.realgm.com/
+
+
+Citation: Baruch, J. (2020, November 24). Basketball players stats per season - 49 leagues. Kaggle. https://www.kaggle.com/datasets/jacobbaruch/basketball-players-stats-per-season-49-leagues 
+
+
+Website: https://www.kaggle.com/datasets/jacobbaruch/basketball-players-stats-per-season-49-leagues
+
+
+Descriptive Abstract:
+
+The "player_sub_by_season_full_details.csv" data set contains information regarding the different seasons from 1999-2020 categorized by 1 year blocks of 49 different Leagues, with the statistics of each season's game such as field goals, 3 points, steals, blocks, points etc. The data set also includes 53,949 player information such as height, weight, nationality and their birth dates.
+
+
+List of Variables: Description
+
+League: League Name
+
+Season: Season Year
+
+Stage: International NBA, Playoffs & Regular Season
+
+Player: Player Full Name
+
+Team: Team Name
+
+GP: Games Played
+
+Min: Minutes Played
+
+FGM: Field Goals Made
+
+FGA: Field Goals Attempts
+
+3PM: Three Points Made
+
+3PA: Three Points Attempts
+
+FTM: Free Throws Made
+
+FTA: Free Throws Attempts
+
+TOV: Turnovers
+
+PF: Personal Fouls
+
+ORB: Offensive Rebounds
+
+DRB: Defensive Rebounds
+
+REB: Rebounds
+
+AST: Assists
+
+STL: Steals
+
+BLK: Blocks
+
+PTS: Points
+
+birth_year: Birth Year
+
+birth_month: Birth Month
+
+birth_date: Birth Date
+
+height: Height [Feet]
+
+height_cm: Height [CM]
+
+weight: Weight [Pounds]
+
+weight_kg: Weight [KG]
+
+nationality: Nationality
+
+high_school: High School
+
+draft_round: Round
+
+draft_pick: Pick
+
+draft_team: Team selected in draft
+
+
+Below is a small peak view of the data set for "player_sub_by_season_full_details.csv":
+```{r}
+players_stats <- read.csv("~/Python/Stats/STAT 4194/players_stats_by_season_full_details.csv")
+player_sub <- players_stats[players_stats$Season=="2000 - 2001",]
+head(player_sub, 4)
+```
+
+
+The data set was cut down to only 2000 - 2001 season. In this regression analysis, an exploration of the dependent outcome variable points (PTS) will be explained by different independent variables such as stage, field goals, blocks, steals, or player information such as height, weight, and draft picks.
+
+----------------------------------------------------------
+
+# Exploratory Analysis
+
+Preliminary Variable Screening and Exploratory Plots:
+                
+```{r}
+#not normally distributed -- use glm, logistic reg. count(Poisson)
+par(mfrow=c(2,2))
+hist(player_sub$PTS, xlab="Points", main="Histogram of Points")
+boxplot(PTS~Stage, data=player_sub,
+     xlab="Stage", ylab="Points",
+     main="Stage vs Points") #categorical predictor with 3+ levels
+plot(x=player_sub$GP, y=player_sub$PTS,
+     xlab="Games Played", ylab="Points", main="Games Played vs Points")
+plot(x=player_sub$MIN, y=player_sub$PTS,
+     xlab="Minutes Played", ylab="Points", main="Minutes Played vs Points")
+
+par(mfrow=c(2,2))
+plot(x=player_sub$FGM, y=player_sub$PTS,
+     xlab="Field Goals Made", ylab="Points", main="Field Goals Made vs Points")
+plot(x=player_sub$FGA, y=player_sub$PTS,
+     xlab="Field Goal Attempt", ylab="Points", main="Field Goal Attempt vs Points")
+plot(x=player_sub$X3PM,y=player_sub$PTS,
+     xlab="3 Points Made", ylab="Points", main="3 Points Made vs Points")
+plot(x=player_sub$X3PA,y=player_sub$PTS,
+     xlab="3 Point Attempt", ylab="Points", main="3 Point Attempt vs Points")
+
+par(mfrow=c(2,2))
+plot(x=player_sub$FTM, y=player_sub$PTS,
+     xlab="Free Trows Made", ylab="Points", main="Free Throws Made vs Points")
+plot(x=player_sub$FTA, y=player_sub$PTS,
+     xlab="Free Throw Attempt", ylab="Points",main="Free Throw Attempt vs Points")
+plot(x=player_sub$TOV, y=player_sub$PTS,
+     xlab="Turnovers", ylab="Points", main="Turnovers vs Points")
+plot(x=player_sub$PF, y=player_sub$PTS,
+     xlab="Personal Fouls", ylab="Points", main="Personal Fouls vs Points")
+
+par(mfrow=c(3,3))
+plot(x=player_sub$ORB, y=player_sub$PTS,
+     xlab="Offensive Rebounds", ylab="Points", main="Offensive Rebounds vs Points")
+plot(x=player_sub$DRB, y=player_sub$PTS,
+     xlab="Defensive Rebounds", ylab="Points", main="Defensive Rebounds vs Points")
+plot(x=player_sub$REB, y=player_sub$PTS,
+     xlab="Rebounds", ylab="Points", main="Rebounds vs Points")
+plot(x=player_sub$AST, y=player_sub$PTS,
+     xlab="Assists", ylab="Points", main="Assists vs Points")
+plot(x=player_sub$STL, y=player_sub$PTS,
+     xlab="Steals", ylab="Points", main="Steals vs Points")
+plot(x=player_sub$BLK, y=player_sub$PTS,
+     xlab="Blocks", ylab="Points", main="Blocks vs Points")
+
+par(mfrow=c(2,2))
+plot(x=player_sub$draft_round, y=player_sub$PTS,
+     xlab="Draft Rounds", ylab="Points", main="Draft Rounds vs Points")
+plot(x=player_sub$draft_pick, y=player_sub$PTS,
+     xlab="Draft Pick", ylab="Points", main="Draft Pick vs Points")
+```
+```{r}
+columns=data.frame(player_sub$FGM, player_sub$X3PM, player_sub$FTM, player_sub$TOV)
+pairs(columns)
+```
+
+Based on the exploratory plots shown above, the dependent variable with the strongest correlation are the following: Stage, field goals made and attempted, 3 points made, free throws made, turnovers, and draft rounds.
+
+----------------------------------------------------
+
+# Model Building
+
+The histogram of points (PTS) did not seem to be normally distributed, a good use of the model function to use is the logistic regression model (glm). While building the model, the first family used was Poisson distribution, since the default distribution of Gaussian is for when the dependent variable y is continuous and roughly normally distributed, which in this case is not, so a Poisson distribution was attempted.
+
+After trying two different models of Poisson family, the dispersion test was done to determine if a Poisson model or a negative binomial model is a better fit for the data. Based on the overdispersion test, the dispersion ratio is 38.32936 and 71.05908 which is much greater then 1, so a negative binomial is a better fit for this data. The p-value were 5.634e-10 and <2.2e-16, which shows that these p-values < $\alpha$(0.05), meaning there is significance of overdispersion.
+
+As a result, the Poisson family is not appropriate for such model, so the negative binomial model was used and other models were attempted.
+
+```{r}
+#poisson models
+model0 <- glm(PTS~Stage+FGM+FGA+X3PM+FTM+TOV+draft_round, 
+              data=player_sub, family="poisson")
+dispersiontest(model0, alternative="greater") #dispersion test
+
+model00 <- glm(PTS~FGM+X3PM+FTM+AST, data=player_sub, family="poisson")
+dispersiontest(model00, alternative="greater") #dispersion test
+
+#negative binomial models
+model1 <- glm.nb(PTS~Stage+FGM+FGA+X3PM+FTM+TOV+draft_round,
+                 data=player_sub)
+
+model2 <- glm.nb(PTS~MIN+FGM+PF+ORB+DRB+AST+STL+BLK+draft_pick, 
+                 data=player_sub)
+
+model3 <- glm.nb(PTS~FGM+X3PM+FTM+AST+draft_round, data=player_sub)
+
+model4 <- glm.nb(PTS~FGM+X3PM+FTM+draft_round+draft_pick, data=player_sub)
+```
+
+----------------------------------------------------
+
+
+# Model Evaluation
+
+From the AIC and BIC shown below, the model with the lowest AIC and BIC is model 1. Model 1 has an AIC of 4,068.454 and a BIC is 4,106.137, compared to model 4, which has one of the highest BIC found at 4236.585, which means model 1 is considered as the best fit for the data set "player_sub_by_season_full_details.csv".
+
+```{r}
+AIC(model1, model2, model3, model4)
+```
+
+```
+From the AIC table above, the lowest AIC model is model 1, and the highest is model 4.
+```
+
+```{r}
+BIC(model1, model2, model3, model4)
+```
+
+```
+From the BIC table above, the lowest BIC model is model 1, and the highest is model 4.
+```
+
+Constant variance, normally distributed residuals, and linear relationships:
+
+As seen on the plots below, the histogram of residuals are independent, identical normally distributed, there is also constant variance. The QQ plot points are mostly along the line, which shows that there is no systematic trend, and are centered around zero with no large outliers and are approximately normally distributed, showing a linear trend between predictors and response.
+
+Based on the Exploratory Plots from above, the plots with the strongest linear relationships are as follows: Stage, field goals made and attempted, 3 points made, free throws made, turnovers, and draft rounds.
+```{r}
+par(mfrow=c(2,2))
+plot(model1$fitted.values, model1$residuals,
+     main = "Residuals vs Fitted Values", 
+     xlab = "Fitted Values", 
+     ylab = "Residuals")
+abline(h = 0, col = "red", lwd=1)
+hist(resid(model1), xlab="Residual", main="Histogram of Residuals")
+qqnorm(model1$residuals); qqline(model1$residuals)
+plot(fitted(model1),rstandard(model1),xlab="fitted values",ylab="standardized residuals",pch=16)
+abline(h=0,col="red",lwd=1)
+```
+
+--------------------------------------------------------
+
+
+# Analysis and Findings
+
+The data set "player_sub_by_season_full_details.csv", shows the information of each season for different leagues and teams, with detailed information of the players and the games. In this analysis, the dependent outcome variable points made by the independent variables chosen are fitted into models that best describe the data set above.
+
+After exploring the different plots, the distribution of dependent variable points was non-normal, this plot shows that the linear regression (lm) would not be a good model to use, such why the logistic regression (glm) would be a better model. The debate of using poisson or negative binomial was taken place as both are used for count (positive) and non-normally distributed data, as for the binomial family is solitary for binary (0 or 1) variables. For which in this case, a model0 and model00 of poisson family was created to test the overdispersion, which is if the variance is greater than the mean. Following this, the overdispersion ratio is 38.32936 and 71.05908, which shows that there is the model is overdispersed, and a negative binomial model should be used.
+
+The following models 1-4 were taken with different dependent variables used, showing the different results for each model. In the model evaluation, the lowest AIC and BIC model was model 1 at a AIC of 4068.454 and a BIC is 4106.137. The highest model was model 4, with AIC of 4210.207 and BIC of 4236.585.
+
+The residuals, fitted plots and QQ plots were also taken into consideration for model 1 with the lowest AIC and BIC to examine if the model would be normally distributed. In which case, the histogram of residuals were independent, identical and normally distributed with constant variance. The QQ plots were also normal, with a large amount of the points along the plotted line. Comparing the different plots in the Exploratory Analysis, there is a strong linear relationship between points and all the different predictors that were added to the model 1.
+
+From the finding in the analysis done above, the independent variables that the dependent variable points are dependent on are stage, field goals made, field goals attempted, 3 points made, free throws made, turnovers and draft rounds (Stage+FGM+FGA+X3PM+FTM+TOV+draft_round). 
+
+In conclusion, model 1 which has all the dependent variables mentioned above has the best model to analyse the dependent variable points.
+
+
+
